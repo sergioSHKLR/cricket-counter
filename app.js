@@ -40,7 +40,6 @@ imageInput.addEventListener('change', (e) => {
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
-        document.getElementById('originalImage').src = img.src;
     };
     img.src = URL.createObjectURL(file);
 });
@@ -79,7 +78,12 @@ function processImage() {
         if (area > minArea) {
             count++;
             const rect = cv.boundingRect(contours.get(i));
-            cv.rectangle(src, rect.tl(), rect.br(), new cv.Scalar(0, 255, 0, 255), 2);
+            // Fixed rectangle drawing for OpenCV.js bindings
+            const pt1 = new cv.Point(rect.x, rect.y);
+            const pt2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+            cv.rectangle(src, pt1, pt2, new cv.Scalar(0, 255, 0, 255), 2);
+            pt1.delete();
+            pt2.delete();
         }
     }
 
