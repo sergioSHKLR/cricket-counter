@@ -1,40 +1,37 @@
 let cvReady = false;
+const statusEl = document.getElementById('status');
+
+document.addEventListener('DOMContentLoaded', () => {
+    const opencvScript = document.querySelector('script[src="opencv.js"]');
+    if (opencvScript) {
+        opencvScript.onload = () => {
+            if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+                cv.onRuntimeInitialized = () => {
+                    cvReady = true;
+                    statusEl.textContent = 'OpenCV.js Carregado com sucesso! Você pode processar a imagem.';
+                    console.log('OpenCV.js initialized');
+                };
+            } else {
+                cvReady = true;
+                statusEl.textContent = 'OpenCV.js Carregado (sem WASM detectado).';
+            }
+        };
+    }
+});
+
 const imageInput = document.getElementById('imageInput');
 const processBtn = document.getElementById('processBtn');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const countEl = document.getElementById('count');
-const statusEl = document.getElementById('status');
 
 const thresholdSlider = document.getElementById('threshold');
 const minAreaSlider = document.getElementById('minArea');
-const threshValue = document.getElementById('threshValue');
-const areaValue = document.getElementById('areaValue');
+const thresholdValue = document.getElementById('thresholdValue');
+const minAreaValue = document.getElementById('minAreaValue');
 
-thresholdSlider.addEventListener('input', () => threshValue.textContent = thresholdSlider.value);
-minAreaSlider.addEventListener('input', () => areaValue.textContent = minAreaSlider.value);
-
-document.addEventListener('DOMContentLoaded', () => {
-    const cvScript = document.querySelector('script[src*="opencv.js"]');
-    if (cvScript) {
-        cvScript.onload = () => {
-            if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-                cv.onRuntimeInitialized = () => {
-                    cvReady = true;
-                    statusEl.textContent = 'OpenCV.js Carregado com sucesso! Você pode processar a imagem.';
-                    console.log('OpenCV.js pronto');
-                };
-            } else {
-                // Fallback for some versions
-                cvReady = true;
-                statusEl.textContent = 'OpenCV.js Carregado (fallback).';
-            }
-        };
-        cvScript.onerror = () => {
-            statusEl.textContent = 'Erro ao carregar OpenCV.js. Tente recarregar a página.';
-        };
-    }
-});
+thresholdSlider.addEventListener('input', () => thresholdValue.textContent = thresholdSlider.value);
+minAreaSlider.addEventListener('input', () => minAreaValue.textContent = minAreaSlider.value);
 
 imageInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -50,53 +47,52 @@ imageInput.addEventListener('change', (e) => {
 
 processBtn.addEventListener('click', () => {
     if (!cvReady) {
-        alert('OpenCV ainda carregando. Aguarde um momento.');
+        alert('OpenCV.js ainda carregando. Aguarde um momento.');
         return;
     }
     processImage();
 });
 
 function processImage() {
-    const src = cv.imread(canvas);
-    const gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    try {
+        let src = cv.imread(canvas);
+        let gray = new cv.Mat();
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-    const threshold = parseInt(thresholdSlider.value);
-    const minArea = parseInt(minAreaSlider.value);
+        let threshold = parseInt(thresholdSlider.value);
+        let minArea = parseInt(minAreaSlider.value);
 
-    const thresh = new cv.Mat();
-    cv.threshold(gray, thresh, threshold, 255, cv.THRESH_BINARY_INV);
+        let thresh = new cv.Mat();
+        cv.threshold(gray, thresh, threshold, 255, cv.THRESH_BINARY_INV);
 
-    // Morphology to clean noise
-    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-    const cleaned = new cv.Mat();
-    cv.morphologyEx(thresh, cleaned, cv.MORPH_OPEN, kernel);
+        // Morphology to clean up
+        let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+        let opened = new cv.Mat();
+        cv.morphologyEx(thresh, opened, cv.MORPH_OPEN, kernel);
 
-    const contours = new cv.MatVector();
-    const hierarchy = new cv.Mat();
-    cv.findContours(cleaned, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(opened, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-    let count = 0;
-    for (let i = 0; i < contours.size(); ++i) {
-        const area = cv.contourArea(contours.get(i));
-        if (area > minArea) {
-            count++;
-            const rect = cv.boundingRect(contours.get(i));
-            const pt1 = new cv.Point(rect.x, rect.y);
-            const pt2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-            cv.rectangle(src, pt1, pt2, new cv.Scalar(0, 255, 0, 255), 2);
+        let count = 0;
+        for (let i = 0; i < contours.size(); ++i) {
+            let area = cv.contourArea(contours.get(i));
+            if (area > minArea) {
+                count++;
+                let rect = cv.boundingRect(contours.get(i));
+                let point1 = new cv.Point(rect.x, rect.y);
+                let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                cv.rectangle(src, point1, point2, new cv.Scalar(0, 255, 0, 255), 2);
+            }
         }
+
+        cv.imshow(canvas, src);
+        countEl.textContent = count;
+
+        // Cleanup
+        src.delete(); gray.delete(); thresh.delete(); opened.delete(); contours.delete(); hierarchy.delete(); kernel.delete();
+    } catch (e) {
+        console.error(e);
+        alert('Erro no processamento: ' + e.message);
     }
-
-    cv.imshow(canvas, src);
-    countEl.textContent = count;
-
-    // Cleanup
-    src.delete();
-    gray.delete();
-    thresh.delete();
-    cleaned.delete();
-    contours.delete();
-    hierarchy.delete();
-    kernel.delete();
 }
