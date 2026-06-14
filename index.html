@@ -10,17 +10,14 @@
 <body>
     <h1>Contador de Grilos - Detecção por OpenCV.js</h1>
     <p>Carregue uma imagem de grilos e processe com detecção automática.</p>
-    <input type="file" id="imageInput" accept="image/*" style="margin: 10px;">
+    <input type="file" id="imageInput" accept="image/*">
     <button id="processBtn">Processar Imagem</button>
-    <div id="controls" style="margin: 15px 0;">
-        <label>Threshold: <input type="range" id="threshold" min="50" max="200" value="100" style="width: 200px;"></label>
-        <span id="thresholdValue">100</span><br>
-        <label>Área Mínima: <input type="range" id="minArea" min="20" max="500" value="50" style="width: 200px;"></label>
-        <span id="minAreaValue">50</span>
+    <div id="controls">
+        <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="100"> <span id="threshVal">100</span></label><br>
+        <label>Área Mínima: <input type="range" id="minArea" min="10" max="300" value="30"> <span id="areaVal">30</span></label>
     </div>
-    <canvas id="canvas" width="800" height="600" style="border: 2px solid #333; max-width: 100%; display: block; margin: 20px auto;"></canvas>
-    <div id="result" style="font-size: 1.2em; font-weight: bold;">Contagem estimada: <span id="count">0</span></div>
-    <script src="https://docs.opencv.org/4.10.0/opencv.js"></script>
+    <canvas id="canvas" style="max-width:100%; border:2px solid #333;"></canvas>
+    <div id="result">Contagem estimada: <span id="count">0</span></div>
     <script src="app.js"></script>
 </body>
 </html>
