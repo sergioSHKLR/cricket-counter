@@ -1,95 +1,96 @@
 let cvReady = false;
-const statusEl = document.getElementById('status');
-
 const imageInput = document.getElementById('imageInput');
 const processBtn = document.getElementById('processBtn');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const countEl = document.getElementById('count');
-const thresholdSlider = document.getElementById('threshold');
-const minAreaSlider = document.getElementById('minArea');
-const thresholdValue = document.getElementById('thresholdValue');
-const minAreaValue = document.getElementById('minAreaValue');
+const statusEl = document.getElementById('status');
 
-// Update slider values display
-thresholdSlider.addEventListener('input', () => thresholdValue.textContent = thresholdSlider.value);
-minAreaSlider.addEventListener('input', () => minAreaValue.textContent = minAreaSlider.value);
-
-// OpenCV loading
+// Improved OpenCV loading
 function checkCvReady() {
-    if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
-        cv.onRuntimeInitialized = function() {
-            cvReady = true;
-            statusEl.textContent = 'OpenCV.js Carregado com sucesso! Você pode processar a imagem.';
-            console.log('OpenCV.js WASM runtime inicializado');
-        };
-    } else {
-        setTimeout(checkCvReady, 500);
-    }
+  if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+    cvReady = true;
+    if (statusEl) statusEl.textContent = 'OpenCV.js Carregado com sucesso! Você pode processar a imagem.';
+    console.log('OpenCV.js pronto');
+  } else {
+    setTimeout(checkCvReady, 500);
+  }
 }
 
-window.onload = function() {
-    checkCvReady();
-};
+if (typeof cv !== 'undefined') {
+  cv.onRuntimeInitialized = () => {
+    cvReady = true;
+    if (statusEl) statusEl.textContent = 'OpenCV.js Carregado com sucesso! Você pode processar a imagem.';
+  };
+} else {
+  setTimeout(checkCvReady, 1000);
+}
 
 imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const img = new Image();
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-    };
-    img.src = URL.createObjectURL(file);
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+  };
+  img.src = URL.createObjectURL(file);
 });
 
 processBtn.addEventListener('click', () => {
-    if (!cvReady) {
-        alert('OpenCV.js ainda está carregando. Aguarde mais um momento.');
-        return;
-    }
-    processImage();
+  if (!cvReady) {
+    alert('OpenCV.js ainda está carregando. Aguarde um momento.');
+    return;
+  }
+  processImage();
 });
 
 function processImage() {
+  try {
     const src = cv.imread(canvas);
     const gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-    const threshold = parseInt(thresholdSlider.value);
-    const minArea = parseInt(minAreaSlider.value);
+    let threshold = parseInt(document.getElementById('threshold').value) || 80;
+    let minArea = parseInt(document.getElementById('minArea').value) || 25;
 
     const thresh = new cv.Mat();
-    cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
+    cv.threshold(gray, thresh, threshold, 255, cv.THRESH_BINARY_INV);
 
     // Morphological operations to clean up
     const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-    cv.morphologyEx(thresh, thresh, cv.MORPH_OPEN, kernel);
-    cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernel);
+    const cleaned = new cv.Mat();
+    cv.morphologyEx(thresh, cleaned, cv.MORPH_OPEN, kernel);
+    cv.morphologyEx(cleaned, cleaned, cv.MORPH_CLOSE, kernel);
 
     const contours = new cv.MatVector();
     const hierarchy = new cv.Mat();
-    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    cv.findContours(cleaned, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
     let count = 0;
     for (let i = 0; i < contours.size(); ++i) {
-        const area = cv.contourArea(contours.get(i));
-        if (area > minArea) {
-            count++;
-            const rect = cv.boundingRect(contours.get(i));
-            // Fixed rectangle drawing for OpenCV.js bindings
-            const pt1 = new cv.Point(rect.x, rect.y);
-            const pt2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-            cv.rectangle(src, pt1, pt2, new cv.Scalar(0, 255, 0, 255), 2);
-            pt1.delete();
-            pt2.delete();
-        }
+      const contour = contours.get(i);
+      const area = cv.contourArea(contour);
+      if (area > minArea) {
+        count++;
+        const rect = cv.boundingRect(contour);
+        const pt1 = new cv.Point(rect.x, rect.y);
+        const pt2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+        cv.rectangle(src, pt1, pt2, new cv.Scalar(0, 255, 0, 255), 2);
+      }
     }
 
     cv.imshow(canvas, src);
     countEl.textContent = count;
 
-    // Cleanup
-    src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete(); kernel.delete();
+    // Safe cleanup
+    src.delete(); gray.delete(); thresh.delete(); cleaned.delete(); contours.delete(); hierarchy.delete();
+    if (kernel) kernel.delete();
+
+    console.log(`Contagem: ${count}`);
+  } catch (e) {
+    console.error('Erro no processamento:', e);
+    alert('Erro ao processar imagem: ' + e.message);
+  }
 }
