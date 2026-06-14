@@ -1,4 +1,6 @@
 let cvReady = false;
+let cvInstance = null;
+
 const imageInput = document.getElementById('imageInput');
 const processBtn = document.getElementById('processBtn');
 const canvas = document.getElementById('canvas');
@@ -9,19 +11,37 @@ const minAreaSlider = document.getElementById('minArea');
 const thresholdValue = document.getElementById('thresholdValue');
 const minAreaValue = document.getElementById('minAreaValue');
 
-// Update slider values display
+// Improved OpenCV loading with better WASM support
+function initializeOpenCV() {
+    if (typeof cv !== 'undefined') {
+        if (cv.getBuildInformation) {
+            cvReady = true;
+            cvInstance = cv;
+            console.log('OpenCV.js carregado com sucesso (sincrono)');
+        } else {
+            // WASM version
+            cv['onRuntimeInitialized'] = function() {
+                cvReady = true;
+                cvInstance = cv;
+                console.log('OpenCV.js WASM runtime inicializado');
+            };
+        }
+    }
+}
+
+// Update slider values
 document.addEventListener('DOMContentLoaded', () => {
     thresholdSlider.addEventListener('input', () => thresholdValue.textContent = thresholdSlider.value);
     minAreaSlider.addEventListener('input', () => minAreaValue.textContent = minAreaSlider.value);
 
-    // Wait for OpenCV.js
-    const checkCv = setInterval(() => {
-        if (typeof cv !== 'undefined' && cv.getBuildInformation) {
-            clearInterval(checkCv);
-            cvReady = true;
-            console.log('OpenCV.js carregado com sucesso');
+    // Periodic check for loading
+    const checkInterval = setInterval(() => {
+        if (cvReady) {
+            clearInterval(checkInterval);
         }
-    }, 500);
+    }, 800);
+
+    initializeOpenCV();
 });
 
 imageInput.addEventListener('change', (e) => {
@@ -38,40 +58,42 @@ imageInput.addEventListener('change', (e) => {
 
 processBtn.addEventListener('click', () => {
     if (!cvReady) {
-        alert('OpenCV.js ainda está carregando. Aguarde um momento e tente novamente.');
+        alert('OpenCV.js ainda está carregando. Aguarde mais alguns segundos e tente novamente.');
         return;
     }
     processImage();
 });
 
 function processImage() {
-    let src = cv.imread(canvas);
-    let gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    if (!cvInstance) return;
+
+    let src = cvInstance.imread(canvas);
+    let gray = new cvInstance.Mat();
+    cvInstance.cvtColor(src, gray, cvInstance.COLOR_RGBA2GRAY);
 
     const threshold = parseInt(thresholdSlider.value);
     const minArea = parseInt(minAreaSlider.value);
 
-    let thresh = new cv.Mat();
-    cv.threshold(gray, thresh, threshold, 255, cv.THRESH_BINARY_INV);
+    let thresh = new cvInstance.Mat();
+    cvInstance.threshold(gray, thresh, threshold, 255, cvInstance.THRESH_BINARY_INV);
 
-    let contours = new cv.MatVector();
-    let hierarchy = new cv.Mat();
-    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    let contours = new cvInstance.MatVector();
+    let hierarchy = new cvInstance.Mat();
+    cvInstance.findContours(thresh, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
 
     let count = 0;
     for (let i = 0; i < contours.size(); ++i) {
-        const area = cv.contourArea(contours.get(i));
+        const area = cvInstance.contourArea(contours.get(i));
         if (area > minArea) {
             count++;
-            const rect = cv.boundingRect(contours.get(i));
-            cv.rectangle(src, rect.tl(), rect.br(), new cv.Scalar(0, 255, 0, 255), 3);
+            const rect = cvInstance.boundingRect(contours.get(i));
+            cvInstance.rectangle(src, rect.tl(), rect.br(), new cvInstance.Scalar(0, 255, 0, 255), 3);
         }
     }
 
-    cv.imshow(canvas, src);
+    cvInstance.imshow(canvas, src);
     countEl.textContent = count;
 
-    // Memory cleanup
+    // Cleanup
     src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
 }
