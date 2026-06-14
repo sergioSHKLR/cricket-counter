@@ -6,7 +6,6 @@
     <title>Contador de Grilos</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <script src="https://docs.opencv.org/4.x/opencv.js" async></script>
 </head>
 <body>
     <h1>Contador de Grilos - Detecção por OpenCV.js</h1>
@@ -14,11 +13,12 @@
     <input type="file" id="imageInput" accept="image/*">
     <button id="processBtn">Processar Imagem</button>
     <div id="controls">
-        <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="80"> <span id="thresholdValue">80</span></label>
-        <label>Área Mínima: <input type="range" id="minArea" min="10" max="500" value="30"> <span id="minAreaValue">30</span></label>
+        <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="80"> <span id="threshValue">80</span></label>
+        <label>Área Mínima: <input type="range" id="minArea" min="10" max="500" value="30"> <span id="areaValue">30</span></label>
     </div>
-    <canvas id="canvas" width="800" height="600" style="max-width:100%; border:1px solid #ccc;"></canvas>
+    <canvas id="canvas" width="800" height="600"></canvas>
     <div id="result">Contagem estimada: <span id="count">0</span></div>
+    <script src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/opencv.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
