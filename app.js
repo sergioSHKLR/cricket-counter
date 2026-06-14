@@ -1,99 +1,101 @@
 let cvReady = false;
-let cvInstance = null;
-
 const imageInput = document.getElementById('imageInput');
 const processBtn = document.getElementById('processBtn');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const countEl = document.getElementById('count');
-const thresholdSlider = document.getElementById('threshold');
-const minAreaSlider = document.getElementById('minArea');
-const thresholdValue = document.getElementById('thresholdValue');
-const minAreaValue = document.getElementById('minAreaValue');
+let statusEl;
 
-// Improved OpenCV loading with better WASM support
-function initializeOpenCV() {
-    if (typeof cv !== 'undefined') {
-        if (cv.getBuildInformation) {
-            cvReady = true;
-            cvInstance = cv;
-            console.log('OpenCV.js carregado com sucesso (sincrono)');
-        } else {
-            // WASM version
-            cv['onRuntimeInitialized'] = function() {
-                cvReady = true;
-                cvInstance = cv;
-                console.log('OpenCV.js WASM runtime inicializado');
-            };
-        }
-    }
+function updateStatus(msg) {
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.style.color = '#0066cc';
+    statusEl.style.margin = '10px 0';
+    statusEl.style.fontWeight = 'bold';
+    const result = document.getElementById('result');
+    if (result) result.parentNode.insertBefore(statusEl, result);
+  }
+  statusEl.textContent = msg;
+  console.log('[Status]', msg);
 }
 
-// Update slider values
 document.addEventListener('DOMContentLoaded', () => {
-    thresholdSlider.addEventListener('input', () => thresholdValue.textContent = thresholdSlider.value);
-    minAreaSlider.addEventListener('input', () => minAreaValue.textContent = minAreaSlider.value);
-
-    // Periodic check for loading
-    const checkInterval = setInterval(() => {
-        if (cvReady) {
-            clearInterval(checkInterval);
-        }
-    }, 800);
-
-    initializeOpenCV();
+  updateStatus('Carregando OpenCV.js...');
+  const script = document.createElement('script');
+  script.src = 'https://docs.opencv.org/4.10.0/opencv.js';
+  script.async = true;
+  script.onload = () => {
+    if (typeof cv !== 'undefined' && cv.onRuntimeInitialized) {
+      cv.onRuntimeInitialized = () => {
+        cvReady = true;
+        updateStatus('✅ OpenCV.js pronto para uso. Carregue a imagem e processe.');
+      };
+    } else {
+      updateStatus('OpenCV.js carregado, aguardando inicialização...');
+    }
+  };
+  document.head.appendChild(script);
 });
 
+// Rest of event listeners and processImage function (adaptive threshold version)
 imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const img = new Image();
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-    };
-    img.src = URL.createObjectURL(file);
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    updateStatus('Imagem carregada. Ajuste sliders e clique em Processar.');
+  };
+  img.src = URL.createObjectURL(file);
 });
 
 processBtn.addEventListener('click', () => {
-    if (!cvReady) {
-        alert('OpenCV.js ainda está carregando. Aguarde mais alguns segundos e tente novamente.');
-        return;
-    }
-    processImage();
+  if (!cvReady) {
+    alert('OpenCV ainda carregando. Tente novamente em alguns segundos.');
+    return;
+  }
+  processImage();
 });
 
 function processImage() {
-    if (!cvInstance) return;
+  updateStatus('Processando imagem com detecção aprimorada...');
+  try {
+    const src = cv.imread(canvas);
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-    let src = cvInstance.imread(canvas);
-    let gray = new cvInstance.Mat();
-    cvInstance.cvtColor(src, gray, cvInstance.COLOR_RGBA2GRAY);
+    const minArea = parseInt(document.getElementById('minArea').value) || 30;
 
-    const threshold = parseInt(thresholdSlider.value);
-    const minArea = parseInt(minAreaSlider.value);
+    const thresh = new cv.Mat();
+    cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
 
-    let thresh = new cvInstance.Mat();
-    cvInstance.threshold(gray, thresh, threshold, 255, cvInstance.THRESH_BINARY_INV);
+    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+    cv.morphologyEx(thresh, thresh, cv.MORPH_OPEN, kernel);
+    cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernel);
 
-    let contours = new cvInstance.MatVector();
-    let hierarchy = new cvInstance.Mat();
-    cvInstance.findContours(thresh, contours, hierarchy, cvInstance.RETR_EXTERNAL, cvInstance.CHAIN_APPROX_SIMPLE);
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
     let count = 0;
     for (let i = 0; i < contours.size(); ++i) {
-        const area = cvInstance.contourArea(contours.get(i));
-        if (area > minArea) {
-            count++;
-            const rect = cvInstance.boundingRect(contours.get(i));
-            cvInstance.rectangle(src, rect.tl(), rect.br(), new cvInstance.Scalar(0, 255, 0, 255), 3);
-        }
+      const area = cv.contourArea(contours.get(i));
+      if (area > minArea) {
+        count++;
+        const rect = cv.boundingRect(contours.get(i));
+        cv.rectangle(src, rect.tl(), rect.br(), new cv.Scalar(0, 255, 0, 255), 2);
+      }
     }
 
-    cvInstance.imshow(canvas, src);
+    cv.imshow(canvas, src);
     countEl.textContent = count;
+    updateStatus(`✅ Processamento concluído. Contagem estimada: ${count} grilos.`);
 
-    // Cleanup
-    src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
+    src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete(); kernel.delete();
+  } catch (err) {
+    updateStatus('❌ Erro: ' + err.message);
+    console.error(err);
+  }
 }
