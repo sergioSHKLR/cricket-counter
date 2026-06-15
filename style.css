@@ -1,5 +1,5 @@
-body { font-family: system-ui, sans-serif; text-align: center; padding: 20px; background: #f8f9fa; }
-canvas { display: block; margin: 20px auto; }
-button, input { margin: 10px; padding: 8px 16px; font-size: 16px; }
+body { font-family: system-ui, sans-serif; text-align: center; padding: 20px; background: #f5f5f5; }
+canvas { border: 2px solid #333; max-width: 100%; margin: 20px auto; display: block; }
+button, input { margin: 10px; padding: 10px; font-size: 16px; }
 #controls { margin: 15px 0; }
-#result { font-size: 1.2em; font-weight: bold; }
+label { display: block; margin: 10px; }

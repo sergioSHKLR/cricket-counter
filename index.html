@@ -8,17 +8,15 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <h1>Contador de Grilos - Detecção Simples</h1>
-    <p id="status">Carregado. Selecione uma imagem.</p>
+    <h1>Contador de Grilos - Detecção por Canvas</h1>
+    <p id="status">Carregue uma imagem de grilos e processe com detecção automática.</p>
     <input type="file" id="imageInput" accept="image/*">
     <button id="processBtn">Processar Imagem</button>
     <div id="controls">
-        <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="80"></label>
-        <span id="thresholdValue">80</span>
-        <label>Área Mínima: <input type="range" id="minArea" min="5" max="200" value="30"></label>
-        <span id="minAreaValue">30</span>
+        <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="80"> <span id="threshValue">80</span></label>
+        <label>Área Mínima: <input type="range" id="minArea" min="5" max="500" value="30"> <span id="areaValue">30</span></label>
     </div>
-    <canvas id="canvas" width="800" height="600" style="max-width:100%; border:1px solid #ccc;"></canvas>
+    <canvas id="canvas" width="800" height="600"></canvas>
     <div id="result">Contagem estimada: <span id="count">0</span></div>
     <script src="app.js"></script>
 </body>
